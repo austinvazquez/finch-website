@@ -1,0 +1,83 @@
+name: CI
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  git-secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull latest awslabs/git-secrets repo
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          repository: awslabs/git-secrets
+          ref: 1.3.0
+          fetch-tags: true
+          path: git-secrets
+
+      - name: Install git secrets from source
+        run: sudo make install
+        working-directory: git-secrets
+
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Scan repository for git secrets
+        run: |
+          git secrets --register-aws
+          git secrets --scan-history
+  
+  check-format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
+        with:
+          python-version: '3.x'
+
+      - name: Install formatters
+        run: just setup-dev-env
+
+      - name: Check Python Format
+        run: just check-python-format 
+
+  lint:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - uses: extractions/setup-just@dd310ad5a97d8e7b41793f8ef055398d51ad4de6 # v2.0.0
+
+      - uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
+        with:
+          python-version: '3.x'
+
+      - name: Install linters
+        run: just setup-dev-env
+
+      - name: YAML lint
+        run: just lint-yaml
+      
+      - name: Markdown lint
+        run: just lint-markdown
+
+  build-dev-container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Build container
+        container: Dockerfile
+        run: exit 0
